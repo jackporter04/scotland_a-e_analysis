@@ -4,6 +4,8 @@ An end-to-end analysis of weekly Emergency Department performance in NHS Scotlan
 built on Public Health Scotland open data, a statistical investigation of what is driving the
 decline, a forecast, and an interactive dashboard.
 
+**Live dashboard:** https://scotlanda-eanalysis-etb6b2zhq5hf4fqzjr6vwt.streamlit.app/
+
 ## The question
 
 Between 2015 and 2019 around 90% of patients at Scotland's major Emergency Departments were seen
