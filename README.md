@@ -64,7 +64,7 @@ sql/02_marts.sql                national, board, hospital and league-table marts
 sql/03_drivers.sql              A&E aligned with delayed discharges and bed occupancy
    │
    ├─ src/analysis.py           break detection, board comparison, fixed-effects models
-   ├─ src/forecast.py           backtest and 12-week forecast
+   ├─ src/forecast.py           backtest and 12-week forecast, saved to data/forecast/
    ▼
 app/dashboard.py                Streamlit + Plotly dashboard
 notebooks/01_drivers.ipynb      full write-up of the driver analysis
@@ -78,6 +78,9 @@ Some decisions worth noting:
 - **Forecasts are trained only on data after the break**, since the earlier regime would pull
   forecasts towards levels not seen since 2021.
 - The database is generated, not committed: the dashboard builds it from the raw CSVs on first run.
+- **Forecast models are fitted offline** (`python -m src.forecast`) and their results saved as CSVs.
+  The backtest refits every model 27 times, which is too slow for the free hosting, so the
+  dashboard only loads the saved results and starts in seconds.
 
 ## Running it locally
 
@@ -85,7 +88,7 @@ Some decisions worth noting:
 python -m venv .venv
 .venv/Scripts/activate            # Windows; source .venv/bin/activate on macOS/Linux
 pip install -r requirements-dev.txt
-python -m src.pipeline            # build the database and forecast
+python -m src.pipeline            # build the database
 streamlit run app/dashboard.py
 ```
 

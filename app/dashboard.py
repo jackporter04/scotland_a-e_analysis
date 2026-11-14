@@ -45,7 +45,7 @@ def ensure_warehouse() -> None:
         build_warehouse()
 
 
-with st.spinner("Building data warehouse and fitting forecast models (one to two minutes on first run)..."):
+with st.spinner("Building data warehouse..."):
     ensure_warehouse()
 
 

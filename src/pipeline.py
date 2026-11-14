@@ -4,7 +4,7 @@ Usage:
     python -m src.pipeline
 
 Reads the saved CSVs in data/raw, loads them into DuckDB, runs the SQL files in sql/ in order to
-produce the staging and mart tables, then fits the forecast models.
+produce the staging and mart tables, then loads the forecast results saved by src/forecast.py.
 """
 from pathlib import Path
 
@@ -44,6 +44,14 @@ def run_sql(con: duckdb.DuckDBPyConnection) -> None:
         con.execute(path.read_text())
 
 
+def load_forecast(con: duckdb.DuckDBPyConnection) -> None:
+    """Load the model results saved by src/forecast.py (see that file for why they are precomputed)."""
+    for table in ("forecast", "forecast_backtest"):
+        path = forecast.OUTPUT / f"{table}.csv"
+        print(f"Loading {path.name}")
+        con.execute(f"CREATE OR REPLACE TABLE {table} AS SELECT * FROM read_csv_auto('{path.as_posix()}')")
+
+
 def main() -> None:
     """Build into a temporary file and swap it in at the end, so an interrupted or failed build
     never leaves a half-finished database behind for the dashboard to read."""
@@ -58,7 +66,14 @@ def main() -> None:
             n = con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
             print(f"  {table}: {n:,} rows")
 
-    forecast.main(tmp)
+    # Saved results are committed, so this only runs on a fresh local setup.
+    if not (forecast.OUTPUT / "forecast.csv").exists():
+        print("No saved forecast results, fitting models")
+        forecast.main(tmp)
+
+    with duckdb.connect(str(tmp)) as con:
+        load_forecast(con)
+
     tmp.replace(DB_PATH)
     print(f"Built {DB_PATH.relative_to(ROOT)}")
 

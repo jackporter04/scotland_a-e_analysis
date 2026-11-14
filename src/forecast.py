@@ -3,9 +3,15 @@
 Models are trained only on data after the August 2021 break point: the earlier regime would pull
 forecasts towards a level the system has not reached since.
 
-Writes two tables to the warehouse:
-    forecast_backtest  - error of every model at every origin and horizon
-    forecast           - 12-week forecast from the best model, with prediction intervals
+Run after the pipeline has built the database:
+    python -m src.forecast
+
+Saves two CSVs to data/forecast/, which the pipeline loads into the warehouse:
+    forecast_backtest.csv  - error of every model at every origin and horizon
+    forecast.csv           - 12-week forecast from the best model, with prediction intervals
+
+The models are fitted here rather than in the pipeline because the backtest refits every model 27
+times. That takes under a minute locally but too long on the free hosting the dashboard runs on.
 """
 import warnings
 from pathlib import Path
@@ -16,7 +22,9 @@ import pandas as pd
 from sklearn.ensemble import HistGradientBoostingRegressor
 from statsmodels.tsa.arima.model import ARIMA
 
-from src.analysis import DB_PATH, find_break
+from src.analysis import DB_PATH, ROOT, find_break
+
+OUTPUT = ROOT / "data" / "forecast"
 
 HORIZON = 12
 BACKTEST_WEEKS = 104   # evaluate over the last two years
@@ -141,11 +149,10 @@ def main(db_path: Path = DB_PATH) -> None:
     print(summary.round(2).to_string())
     best, fc = make_forecast(y, bt)
     print(f"Best model: {best}")
-    with duckdb.connect(str(db_path)) as con:
-        con.register("bt", bt)
-        con.register("fc", fc)
-        con.execute("CREATE OR REPLACE TABLE forecast_backtest AS SELECT * FROM bt")
-        con.execute("CREATE OR REPLACE TABLE forecast AS SELECT * FROM fc")
+    OUTPUT.mkdir(parents=True, exist_ok=True)
+    bt.to_csv(OUTPUT / "forecast_backtest.csv", index=False)
+    fc.to_csv(OUTPUT / "forecast.csv", index=False)
+    print(f"Saved results to {OUTPUT.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":
