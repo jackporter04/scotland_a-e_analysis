@@ -45,8 +45,12 @@ def run_sql(con: duckdb.DuckDBPyConnection) -> None:
 
 
 def main() -> None:
+    """Build into a temporary file and swap it in at the end, so an interrupted or failed build
+    never leaves a half-finished database behind for the dashboard to read."""
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with duckdb.connect(str(DB_PATH)) as con:
+    tmp = DB_PATH.with_name("ae_building.duckdb")
+    tmp.unlink(missing_ok=True)
+    with duckdb.connect(str(tmp)) as con:
         load_raw(con)
         run_sql(con)
         for table in ("stg_weekly", "mart_weekly_national", "mart_weekly_board", "mart_hospital_league",
@@ -54,7 +58,8 @@ def main() -> None:
             n = con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
             print(f"  {table}: {n:,} rows")
 
-    forecast.main()
+    forecast.main(tmp)
+    tmp.replace(DB_PATH)
     print(f"Built {DB_PATH.relative_to(ROOT)}")
 
 

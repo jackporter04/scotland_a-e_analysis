@@ -26,9 +26,27 @@ SEQ_BLUE = ["#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#
 st.set_page_config(page_title="Scotland A&E Waiting Times", layout="wide")
 
 
-if not DB_PATH.exists():
-    with st.spinner("Building data warehouse and fitting forecast models (about a minute)..."):
+def warehouse_is_complete() -> bool:
+    """The forecast tables are written last, so if they exist the whole build finished."""
+    if not DB_PATH.exists():
+        return False
+    try:
+        with duckdb.connect(str(DB_PATH), read_only=True) as con:
+            tables = {t for (t,) in con.execute("SHOW TABLES").fetchall()}
+    except duckdb.Error:
+        return False
+    return {"forecast", "forecast_backtest"} <= tables
+
+
+@st.cache_resource(show_spinner=False)
+def ensure_warehouse() -> None:
+    # cache_resource runs this once per server process, so simultaneous visitors don't each start a build.
+    if not warehouse_is_complete():
         build_warehouse()
+
+
+with st.spinner("Building data warehouse and fitting forecast models (one to two minutes on first run)..."):
+    ensure_warehouse()
 
 
 @st.cache_data

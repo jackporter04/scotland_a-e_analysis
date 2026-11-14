@@ -8,6 +8,7 @@ Writes two tables to the warehouse:
     forecast           - 12-week forecast from the best model, with prediction intervals
 """
 import warnings
+from pathlib import Path
 
 import duckdb
 import numpy as np
@@ -88,8 +89,8 @@ MODELS = {
 }
 
 
-def load_series() -> pd.Series:
-    with duckdb.connect(str(DB_PATH), read_only=True) as con:
+def load_series(db_path: Path = DB_PATH) -> pd.Series:
+    with duckdb.connect(str(db_path), read_only=True) as con:
         df = con.execute("SELECT week_ending, pct_within_4h FROM mart_weekly_national").df()
     y = df.set_index("week_ending")["pct_within_4h"].asfreq("7D")
     brk = find_break(y)
@@ -130,8 +131,8 @@ def make_forecast(y: pd.Series, bt: pd.DataFrame) -> tuple[str, pd.DataFrame]:
     return best, fc
 
 
-def main() -> None:
-    y = load_series()
+def main(db_path: Path = DB_PATH) -> None:
+    y = load_series(db_path)
     print(f"Training on {len(y)} weeks from {y.index[0]:%d %b %Y}")
     bt = backtest(y)
     summary = bt.groupby("model")["error"].agg(
@@ -140,7 +141,7 @@ def main() -> None:
     print(summary.round(2).to_string())
     best, fc = make_forecast(y, bt)
     print(f"Best model: {best}")
-    with duckdb.connect(str(DB_PATH)) as con:
+    with duckdb.connect(str(db_path)) as con:
         con.register("bt", bt)
         con.register("fc", fc)
         con.execute("CREATE OR REPLACE TABLE forecast_backtest AS SELECT * FROM bt")
